@@ -1,0 +1,4 @@
+# dsh-panel-bridge bundle patch —— 把副屏桥接插件叠加到 profile 组合上
+- insert:
+    - id: dsh-panel-bridge
+      name: dsh-panel-bridge

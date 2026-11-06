@@ -1,0 +1,22 @@
+{
+  "name": "dsh-panel-bridge",
+  "version": "0.1.0",
+  "description": "把 DeepSeek Harness 的工作/提问/审批状态同步到鲸鱼娘副屏",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "license": "MIT"
+}
