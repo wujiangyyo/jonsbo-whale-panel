@@ -24,6 +24,14 @@
 
 对话气泡是**竖排**（一字一行），一列最多 9 字，超了才接第二列（从左往右）。
 
+| 待机 | 工作中 |
+|---|---|
+| ![](docs/images/idle.png) | ![](docs/images/working.png) |
+| **待审批** | **等你回答** |
+| ![](docs/images/approval.png) | ![](docs/images/question.png) |
+
+> 这些图由 `whale/render_preview.py` 直接调用渲染函数生成，不是截图；改了布局可以重新生成。
+
 ---
 
 ## 原理
@@ -164,3 +172,4 @@ jonsbo-whale-panel/
 ## License
 
 MIT，见 [LICENSE](LICENSE)。
+
