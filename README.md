@@ -169,7 +169,12 @@ jonsbo-whale-panel/
 
 ---
 
+## 相关文章
+
+- [把乔思伯副屏变成鲸鱼娘：JONSBO AIO 自定义主题 + DeepSeek 状态接入](https://wujiangyyo.github.io/goke-tech-blog/posts/jonsbo-whale-panel/) —— 从摸清渲染机制到成品的完整记录
+
 ## License
 
 MIT，见 [LICENSE](LICENSE)。
+
 
