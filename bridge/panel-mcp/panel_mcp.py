@@ -24,6 +24,7 @@ import urllib.request
 NAME = "jonsbo-panel"
 VERSION = "0.1.0"
 API = os.environ.get("PANEL_API", "http://127.0.0.1:8765").rstrip("/")
+SOURCE = os.environ.get("PANEL_SOURCE", "mcp")
 PROTOCOL = "2024-11-05"
 
 
@@ -129,7 +130,7 @@ def call_tool(name: str, args: dict) -> str:
         return json.dumps(post("/say", payload), ensure_ascii=False)
     if name == "panel_state":
         payload = {
-            "source": args.get("source") or "mcp",
+            "source": args.get("source") or SOURCE,
             "session": args.get("session") or "",
             "state": args.get("state", "idle"),
             "detail": args.get("detail", ""),
