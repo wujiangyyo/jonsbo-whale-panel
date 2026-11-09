@@ -73,3 +73,35 @@ curl -X POST http://127.0.0.1:8765/state \
 ```
 
 只监听回环地址；跨机使用需要额外加认证与绑定，见 [05-troubleshooting.md](05-troubleshooting.md)。
+
+## 多 Agent 共存
+
+多个 Agent 同时用一块屏时，用 `PANEL_SOURCE` 给每个客户端一个身份：
+
+```json
+{
+  "mcpServers": {
+    "panel": {
+      "command": "python",
+      "args": ["C:/Users/你/AppData/Local/jonsbo-panel/panel_mcp.py"],
+      "env": { "PANEL_SOURCE": "reasonix" }
+    }
+  }
+}
+```
+
+屏幕上会显示来源徽标（`DSH` / `REAX` / `HERM` / `TELE`），多个源同时在等时角落标 `+N`，
+显示优先级最高的一条：`approval 100 > question 90 > plan 70 > working 40 > done 30 > idle 10`。
+
+每个源的状态都有租期（默认按状态给 10–300 秒），Agent 崩了不会留下僵尸状态；
+正常退出前调 `panel_clear` 立即清掉。
+
+### 没有 MCP 的 Agent
+
+```bash
+python panel.py working "运行测试" --source hermes --ttl 60
+python panel.py approval "要删除文件" --source hermes
+python panel.py clear --source hermes
+```
+
+`panel.py` 只有标准库依赖，适合挂在 Hermes 的 hooks 里做确定性上报。
