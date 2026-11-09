@@ -152,6 +152,14 @@ def handle(msg: dict) -> dict | None:
 
 
 def main() -> None:
+    # Windows 上 sys.stdin/stdout 默认走系统代码页（cp936），MCP 是 UTF-8；
+    # 不强制会把中文解成孤立代理字符，再编码就崩。
+    for stream in (sys.stdin, sys.stdout):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     for line in sys.stdin:
         line = line.strip()
         if not line:

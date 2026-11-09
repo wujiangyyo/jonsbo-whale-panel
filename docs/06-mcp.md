@@ -52,6 +52,8 @@ claude mcp add panel -- python C:/path/to/panel_mcp.py
 ```
 
 > 注意：Windows 上请用 `python.exe`（不要 `pythonw.exe`，它会吞掉 stdio）。
+> 脚本启动时会把 stdin/stdout 强制成 UTF-8，否则中文会因系统代码页（cp936）
+> 被解成代理字符而报 `surrogates not allowed`。
 > 如果客户端环境里 `python` 不在 PATH，直接把 `command` 写成 python 的绝对路径。
 
 ## 端口与时序
