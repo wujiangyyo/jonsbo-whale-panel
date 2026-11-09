@@ -127,6 +127,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/state -Method Post `
 
 接口清单见 [docs/03-api.md](docs/03-api.md)。
 
+### 给其他 Agent 用（MCP）
+
+`bridge/panel-mcp/panel_mcp.py` 是一个纯标准库的 MCP 服务器，把上面这些接口包成 `panel_say` / `panel_state` / `panel_flash` / `panel_resume` 工具，Reasonix、Claude Code 等支持 MCP 的 Agent 配一行即可使用，**不依赖 DeepSeek Harness**。
+
+详见 [docs/06-mcp.md](docs/06-mcp.md)。
+
 ---
 
 ## 台词与姿态
