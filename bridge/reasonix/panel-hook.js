@@ -96,9 +96,16 @@ function replaceState(state, detail, ttl) {
 function parseNotification(message) {
   const raw = String(message || "").trim();
   const lower = raw.toLowerCase();
-  const isApproval = /approv|permission|审批|授权|批准/.test(lower);
+  // 计划确认优先于普通审批：消息里同时提到"计划/plan"和"批准/确认"时归为 plan
+  const isPlan = /plan|计划/.test(lower);
+  const isApproval = /approv|permission|审批|授权|批准|确认/.test(lower);
   // 提问类：Question / 需要回答 / 需要你决定 / 请选择 …
   const isQuestion = /question|ask_?user|input required|回答|提问|请输入|请选择|决定|需要你/.test(lower);
+  if (isPlan && (isApproval || /确认|review/.test(lower))) {
+    let d = raw.replace(/^[^:：]*[:：]\s*/, "").trim() || "计划待确认";
+    if (d.length > 40) d = d.slice(0, 39) + "…";
+    return { state: "plan", detail: d };
+  }
   if (!isApproval && !isQuestion) return null;
 
   // "approval needed: bash go test ./..." -> "bash go test ./..."

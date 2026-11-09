@@ -21,7 +21,8 @@ Reasonix 有完整的 hooks 事件，能做到**确定性**的状态上报，不
 | 场景 | message 示例 | 映射 |
 |---|---|---|
 | 工具审批 | `approval needed: bash git push` / `需要审批：bash git push` | `approval` |
-| 等待回答 | `需要回答：选哪个方案？` | `question` |
+| 等待回答 | `需要回答：选哪个方案？` / `需要你决定：…` | `question` |
+| 计划确认 | `计划已生成，等待你确认：…` / `plan review required: …` | `plan` |
 
 关键词匹配（中英文都覆盖）：`approv|permission|审批|授权|批准` → approval；
 `question|ask|input required|回答|提问|请输入|请选择` → question。命中后用冒号后的内容做 detail。
