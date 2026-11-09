@@ -96,8 +96,8 @@ function replaceState(state, detail, ttl) {
 function parseNotification(message) {
   const raw = String(message || "").trim();
   const lower = raw.toLowerCase();
-  const isApproval = /approv|permission|审批|授权/.test(lower);
-  const isQuestion = /question|ask_?user|input required|等待回答|请输入/.test(lower);
+  const isApproval = /approv|permission|审批|授权|批准/.test(lower);
+  const isQuestion = /question|ask_?user|input required|回答|提问|请输入|请选择/.test(lower);
   if (!isApproval && !isQuestion) return null;
 
   // "approval needed: bash go test ./..." -> "bash go test ./..."
