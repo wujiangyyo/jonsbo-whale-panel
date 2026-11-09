@@ -12,6 +12,9 @@ GET  /       （用法说明）
 import json
 import threading
 import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from moods import pick_mood
@@ -64,10 +67,19 @@ def make_handler(write_cmd, log):
             self.send_header("Access-Control-Max-Age", "86400")
             self.end_headers()
 
+        def _read_status(self):
+            try:
+                p = HERE / "status.json"
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                return {"state": "unknown", "detail": "", "ts": time.time()}
+
         def do_GET(self):
             path = self.path.split("?")[0]
             if path == "/health":
                 self._send(200, {"ok": True, "ts": time.time()})
+            elif path == "/state":
+                self._send(200, self._read_status())
             else:
                 self._send(200, USAGE)
 
@@ -107,7 +119,8 @@ def make_handler(write_cmd, log):
                         return self._send(400, {"ok": False, "error": "unknown state",
                                                 "allowed": sorted(set(STATE_ALIASES.values()))})
                     payload = {"type": "state", "state": state,
-                               "detail": str(data.get("detail", ""))}
+                               "detail": str(data.get("detail", "")),
+                               "force": bool(data.get("force"))}
                 elif path == "/flash":
                     kind = str(data.get("kind", "success")).lower()
                     if kind not in ("success", "failure"):

@@ -39,6 +39,26 @@ WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "�
 
 # 状态模式（由 dsh-panel-bridge 插件上报）
 STATUS = {"state": "idle", "detail": ""}
+STATUS_FILE = HERE / "status.json"
+
+
+def publish_status():
+    """把真实状态写给外部查询（cmd.json 可能停在被忽略的那条）。"""
+    try:
+        tmp = STATUS_FILE.with_suffix(".status.tmp")
+        tmp.write_text(json.dumps({
+            "state": STATUS["state"], "detail": STATUS["detail"],
+            "sticky_until": STICKY_UNTIL, "ts": time.time(),
+        }, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, STATUS_FILE)
+    except Exception:
+        pass
+
+
+STICKY_STATES = {"approval", "question", "plan"}
+STICKY_TTL = 180.0
+STICKY_UNTIL = 0.0
+
 STATUS_POSE = {"working": "running", "approval": "waiting", "question": "curious", "plan": "thinking"}
 # ---------------- 对话气泡 ----------------
 BUBBLE = {"text": "", "until": 0.0, "key": ""}
@@ -586,12 +606,27 @@ def main():
             if cmd.get("type") == "state":
                 new_state = cmd.get("state", "idle")
                 detail = normalize_detail(new_state, cmd.get("detail", ""))
-                changed = new_state != STATUS["state"] or detail != STATUS["detail"]
-                STATUS["state"] = new_state
-                STATUS["detail"] = detail
-                shown = None
-                last_sig = None
+                force = bool(cmd.get("force"))
                 now2 = time.time()
+                global STICKY_UNTIL
+                # 粘性：审批/提问/计划在 TTL 内不被自动的 working/idle 覆盖
+                if (not force and new_state in ("working", "idle")
+                        and STATUS["state"] in STICKY_STATES
+                        and now2 < STICKY_UNTIL):
+                    log("state ignored (sticky %s, %.0fs left): %s"
+                        % (STATUS["state"], STICKY_UNTIL - now2, new_state))
+                    changed = False
+                else:
+                    changed = new_state != STATUS["state"] or detail != STATUS["detail"]
+                    STATUS["state"] = new_state
+                    STATUS["detail"] = detail
+                    publish_status()
+                    shown = None
+                    last_sig = None
+                    if new_state in STICKY_STATES:
+                        STICKY_UNTIL = now2 + STICKY_TTL
+                    else:
+                        STICKY_UNTIL = 0.0
                 if changed:
                     if new_state in ("approval", "question", "plan"):
                         show_bubble(pick_line(new_state), hold=10 ** 9,
@@ -616,6 +651,8 @@ def main():
                 shown = None
                 STATUS["state"] = "idle"
                 STATUS["detail"] = ""
+                STICKY_UNTIL = 0.0
+                publish_status()
                 BUBBLE["text"] = ""
                 BUBBLE["until"] = 0
             elif cmd.get("type") in ("text", "image"):

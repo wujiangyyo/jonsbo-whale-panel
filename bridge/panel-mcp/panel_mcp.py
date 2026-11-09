@@ -68,6 +68,7 @@ TOOLS = [
                     "enum": ["working", "approval", "question", "plan", "idle"],
                 },
                 "detail": {"type": "string", "description": "卡片上的补充信息，比如工具名或问题摘要"},
+                "force": {"type": "boolean", "description": "强制覆盖粘性的审批/提问/计划状态（默认 false）"},
             },
             "required": ["state"],
         },
@@ -83,6 +84,11 @@ TOOLS = [
             },
             "required": ["kind"],
         },
+    },
+    {
+        "name": "panel_status",
+        "description": "查询副屏当前真实状态（state / detail / sticky_until）。",
+        "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "panel_resume",
@@ -107,15 +113,20 @@ def call_tool(name: str, args: dict) -> str:
             payload["seconds"] = args["seconds"]
         return json.dumps(post("/say", payload), ensure_ascii=False)
     if name == "panel_state":
-        return json.dumps(post("/state", {
+        payload = {
             "state": args.get("state", "idle"),
             "detail": args.get("detail", ""),
-        }), ensure_ascii=False)
+        }
+        if args.get("force"):
+            payload["force"] = True
+        return json.dumps(post("/state", payload), ensure_ascii=False)
     if name == "panel_flash":
         payload = {"kind": args.get("kind", "success")}
         if "seconds" in args:
             payload["seconds"] = args["seconds"]
         return json.dumps(post("/flash", payload), ensure_ascii=False)
+    if name == "panel_status":
+        return json.dumps(get("/state"), ensure_ascii=False)
     if name == "panel_resume":
         return json.dumps(post("/resume", {}), ensure_ascii=False)
     if name == "panel_health":

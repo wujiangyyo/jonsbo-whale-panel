@@ -13,6 +13,7 @@
 | POST | `/flash` | 瞬时气泡（成功/失败，默认 3 秒） |
 | POST | `/resume` | 立刻回到待机 |
 | GET | `/health` | 探活 |
+| GET | `/state` | 查询当前真实状态 |
 
 ## POST /say
 
@@ -53,6 +54,28 @@
 | `approval` | 待命 | `● 待审批`（红） |
 | `question` | 好奇 | `● 等你回答`（黄） |
 | `plan` | 思考 | `● 计划待确认`（紫） |
+
+## GET /state
+
+返回副屏**真实**状态（不是最近一次请求）。`cmd.json` 可能停在一条被忽略的请求上，排查时看这里。
+
+```json
+{"state": "approval", "detail": "要执行 git push",
+ "sticky_until": 1794193801.8, "ts": 1794193621.9}
+```
+
+## 粘性状态
+
+`approval` / `question` / `plan` 是**粘性**的：默认 180 秒内不会被自动的 `working` / `idle` 覆盖，
+避免「Reasonix 设了待审批，DSH 桥接插件一跑命令就盖成工作中」。
+
+想立刻覆盖，带 `force`：
+
+```json
+{"state": "idle", "force": true}
+```
+
+`/resume` 永远无条件生效。
 
 ## POST /flash
 
