@@ -150,6 +150,15 @@ process.stdin.on("end", () => {
     return;
   }
 
-  // PreToolUse：工具已获准执行，说明审批结束，先清再报工作中
+  // PreToolUse：工具已获准执行，说明审批结束，先清再报新状态。
+  // 结构化优先：ask 类工具（问用户）直接判为 question，不猜文案。
+  const ASK_TOOL = /(^|_)(ask|question|request_user_input|elicit)/i;
+  if (ASK_TOOL.test(tool)) {
+    const args = payload.toolArgs || {};
+    const q = String(args.question || args.message || args.prompt || args.text || "").trim();
+    const detail = q ? (q.length > 40 ? q.slice(0, 39) + "…" : q) : "等待你回答";
+    replaceState("question", detail, 120);
+    return;
+  }
   replaceState("working", tool || "");
 });
