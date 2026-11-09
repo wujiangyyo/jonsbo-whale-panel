@@ -17,7 +17,9 @@ window.__ModuleLoader__.load({
      */
     "use strict";
 
-    var DEFAULT_API = "http://127.0.0.1:8765/state";
+    var DEFAULT_API = "http://127.0.0.1:8765/report";
+    var SOURCE = "dsh";
+    var SESSION = "w" + Math.random().toString(36).slice(2, 8);
     var STARTED = false;
     var lastKey = null;
     var debounceTimer = null;
@@ -107,12 +109,32 @@ window.__ModuleLoader__.load({
     function post(payload) {
       try {
         if (typeof fetch === "function") {
+          var body = {
+            source: SOURCE,
+            session: SESSION,
+            ttl: 30,
+            state: payload.state,
+            detail: payload.detail,
+          };
           fetch(apiUrl(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(body),
             keepalive: true,
           }).catch(function () { /* 副屏没开就算了 */ });
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function clearSelf() {
+      try {
+        if (typeof fetch === "function") {
+          fetch(apiUrl().replace(/\/report\/?$/, "/clear"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source: SOURCE, session: SESSION }),
+            keepalive: true,
+          }).catch(function () {});
         }
       } catch (e) { /* ignore */ }
     }
@@ -156,12 +178,17 @@ window.__ModuleLoader__.load({
       lastRun = runCount;
     }
 
+    var lastPostAt = 0;
+
     function tick() {
       if (typeof document === "undefined") return;
       var s = computeState(document);
       var key = s.state + "|" + s.detail;
-      if (key !== lastKey) {
+      var now = Date.now();
+      // 状态变了立刻发；没变也要每 10 秒续租，否则 DSH 卡住时副屏会自己过期
+      if (key !== lastKey || now - lastPostAt > 10000) {
         lastKey = key;
+        lastPostAt = now;
         post(s);
       }
       trackTools(s);
@@ -201,7 +228,7 @@ window.__ModuleLoader__.load({
 
       try {
         window.addEventListener("beforeunload", function () {
-          post({ state: "idle", detail: "" });
+          clearSelf();
         });
       } catch (e) { /* ignore */ }
     }

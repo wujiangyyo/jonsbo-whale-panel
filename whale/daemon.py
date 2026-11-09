@@ -38,7 +38,10 @@ LOOP = 32.0
 WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 
 # 状态模式（由 dsh-panel-bridge 插件上报）
-STATUS = {"state": "idle", "detail": ""}
+STATUS = {"state": "idle", "detail": "", "source": "", "count": 0}
+import hub
+
+HUB = hub.Hub()
 STATUS_FILE = HERE / "status.json"
 
 
@@ -48,7 +51,8 @@ def publish_status():
         tmp = STATUS_FILE.with_suffix(".status.tmp")
         tmp.write_text(json.dumps({
             "state": STATUS["state"], "detail": STATUS["detail"],
-            "sticky_until": STICKY_UNTIL, "ts": time.time(),
+            "source": STATUS.get("source", ""), "count": STATUS.get("count", 0),
+            "ts": time.time(), "reports": HUB.snapshot().get("reports", []),
         }, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, STATUS_FILE)
     except Exception:
@@ -304,7 +308,9 @@ _clock_cache = {}
 def clock_layer(now, status=None):
     state = (status or {}).get("state", "idle")
     detail = (status or {}).get("detail", "")
-    key = (now.strftime("%H:%M"), state, detail)
+    source = (status or {}).get("source", "")
+    count = int((status or {}).get("count", 0) or 0)
+    key = (now.strftime("%H:%M"), state, detail, source, count)
     if key in _clock_cache:
         return _clock_cache[key]
 
@@ -366,6 +372,17 @@ def clock_layer(now, status=None):
         d.text((x0 - tb2[0], 178 - tb2[1]), hhmm, font=f_time, fill=(190, 220, 240, 255))
         d.text((x0 + (tb2[2] - tb2[0]) + 14 - db[0], 182 - db[1]), date_txt, font=f_date,
                fill=(120, 165, 195, 255))
+
+    if state != "idle" and source:
+        label_src = SOURCE_LABELS.get(str(source).lower(), str(source).upper()[:6])
+        txt = label_src + ((" +%d" % count) if count else "")
+        fb = ImageFont.truetype(FONT_REG, 16)
+        tw = d.textlength(txt, font=fb)
+        bx1, by0 = 436, 14
+        bx0 = bx1 - tw - 16
+        d.rounded_rectangle([bx0, by0, bx1, by0 + 26], radius=13,
+                            fill=(20, 40, 64, 210), outline=(90, 180, 235, 140), width=1)
+        d.text((bx0 + 8, by0 + 4), txt, font=fb, fill=(150, 200, 235, 255))
 
     _clock_cache.clear()
     _clock_cache[key] = layer
@@ -579,6 +596,37 @@ def _single_instance():
     return handle
 
 
+SOURCE_LABELS = {"dsh": "DSH", "reasonix": "REAX", "hermes": "HERM",
+                 "teleagent": "TELE", "manual": "MANUAL", "cmd": "MANUAL"}
+
+
+def apply_state(stat, now=None):
+    """把中枢合成出来的状态落到屏幕上（含气泡规则）。"""
+    now = now or time.time()
+    prev = (STATUS.get("state"), STATUS.get("detail"))
+    new_state = stat.get("state", "idle")
+    detail = normalize_detail(new_state, stat.get("detail", ""))
+    STATUS["state"] = new_state
+    STATUS["detail"] = detail
+    STATUS["source"] = stat.get("source", "")
+    STATUS["count"] = int(stat.get("count", 0) or 0)
+    publish_status()
+    if (new_state, detail) == prev:
+        return
+    log("state -> %s/%s from %s (+%d)"
+        % (new_state, detail, STATUS["source"] or "-", STATUS["count"]))
+    if new_state in ("approval", "question", "plan"):
+        show_bubble(pick_line(new_state), hold=10 ** 9,
+                    key=new_state + ":" + detail)
+    elif new_state == "working":
+        if now - _last_bubble_at["working"] >= WORK_BUBBLE_COOLDOWN:
+            show_bubble(pick_line(tool_bucket(detail)), key="work:" + detail)
+            _last_bubble_at["working"] = now
+    elif new_state == "idle":
+        BUBBLE["text"] = ""
+        BUBBLE["until"] = 0
+
+
 def main():
     mutex = _single_instance()
     if mutex is None:
@@ -586,8 +634,13 @@ def main():
         return
     log("daemon start")
     try:
+        CMD.unlink()          # 清掉上次遗留的命令，避免重启时被重放
+        log("stale cmd cleared")
+    except OSError:
+        pass
+    try:
         import api
-        api.start(write_cmd, log, port=config.port())
+        api.start(write_cmd, log, HUB, port=config.port())
     except Exception as e:
         log("api start failed: %s" % e)
     t0 = time.time()
@@ -604,40 +657,12 @@ def main():
 
         if cmd:
             if cmd.get("type") == "state":
-                new_state = cmd.get("state", "idle")
-                detail = normalize_detail(new_state, cmd.get("detail", ""))
-                force = bool(cmd.get("force"))
-                now2 = time.time()
-                global STICKY_UNTIL
-                # 粘性：审批/提问/计划在 TTL 内不被自动的 working/idle 覆盖
-                if (not force and new_state in ("working", "idle")
-                        and STATUS["state"] in STICKY_STATES
-                        and now2 < STICKY_UNTIL):
-                    log("state ignored (sticky %s, %.0fs left): %s"
-                        % (STATUS["state"], STICKY_UNTIL - now2, new_state))
-                    changed = False
-                else:
-                    changed = new_state != STATUS["state"] or detail != STATUS["detail"]
-                    STATUS["state"] = new_state
-                    STATUS["detail"] = detail
-                    publish_status()
-                    shown = None
-                    last_sig = None
-                    if new_state in STICKY_STATES:
-                        STICKY_UNTIL = now2 + STICKY_TTL
-                    else:
-                        STICKY_UNTIL = 0.0
-                if changed:
-                    if new_state in ("approval", "question", "plan"):
-                        show_bubble(pick_line(new_state), hold=10 ** 9,
-                                    key=new_state + ":" + detail)
-                    elif new_state == "working":
-                        if now2 - _last_bubble_at["working"] >= WORK_BUBBLE_COOLDOWN:
-                            show_bubble(pick_line(tool_bucket(detail)), key="work:" + detail)
-                            _last_bubble_at["working"] = now2
-                    elif new_state == "idle":
-                        BUBBLE["text"] = ""
-                        BUBBLE["until"] = 0
+                try:
+                    HUB.report(cmd.get("source") or "manual", cmd.get("state", "idle"),
+                               cmd.get("detail", ""), cmd.get("session", ""),
+                               cmd.get("ttl"), cmd.get("priority"))
+                except ValueError as e:
+                    log("bad state report: %s" % e)
             elif cmd.get("type") == "flash":
                 sig_now = getattr(read_cmd, "last", None)
                 if getattr(main, "flash_sig", None) != sig_now:
@@ -649,9 +674,11 @@ def main():
                                     key="flash:" + kind)
             elif cmd.get("type") == "resume":
                 shown = None
+                HUB.clear()
                 STATUS["state"] = "idle"
                 STATUS["detail"] = ""
-                STICKY_UNTIL = 0.0
+                STATUS["source"] = ""
+                STATUS["count"] = 0
                 publish_status()
                 BUBBLE["text"] = ""
                 BUBBLE["until"] = 0
@@ -663,6 +690,12 @@ def main():
                     last_sig = sig
                 else:
                     shown["until"] = cmd.get("until", shown.get("until"))
+
+        best = HUB.compose(now)
+        if (best["state"] != STATUS.get("state") or best["detail"] != STATUS.get("detail")
+                or best.get("source", "") != STATUS.get("source", "")
+                or best.get("count", 0) != STATUS.get("count", 0)):
+            apply_state(best, now)
 
         if shown and now >= shown.get("until", 0):
             shown = None
@@ -694,6 +727,7 @@ def main():
             sig = ("image", shown.get("path"))
         else:
             sig = ("idle", STATUS.get("state"), STATUS.get("detail"),
+                   STATUS.get("source"), STATUS.get("count"),
                    current_pose(t % LOOP), datetime.now().strftime("%H:%M"),
                    BUBBLE["text"] if bubble_active() else "-")
 

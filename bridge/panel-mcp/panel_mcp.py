@@ -68,7 +68,10 @@ TOOLS = [
                     "enum": ["working", "approval", "question", "plan", "idle"],
                 },
                 "detail": {"type": "string", "description": "卡片上的补充信息，比如工具名或问题摘要"},
-                "force": {"type": "boolean", "description": "强制覆盖粘性的审批/提问/计划状态（默认 false）"},
+                "force": {"type": "boolean", "description": "以最高优先级强行覆盖（默认 false）"},
+                "source": {"type": "string", "description": "上报者标识，如 reasonix / hermes / teleagent"},
+                "session": {"type": "string", "description": "可选，区分同一 Agent 的多个会话"},
+                "ttl": {"type": "number", "description": "状态有效期（秒）"},
             },
             "required": ["state"],
         },
@@ -83,6 +86,18 @@ TOOLS = [
                 "seconds": {"type": "number"},
             },
             "required": ["kind"],
+        },
+    },
+    {
+        "name": "panel_clear",
+        "description": "清除某个 Agent 上报的状态（退出前调用，避免留下僵尸状态）。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "要清除的 Agent 标识"},
+                "session": {"type": "string", "description": "可选，只清这个会话"},
+            },
+            "required": ["source"],
         },
     },
     {
@@ -114,17 +129,27 @@ def call_tool(name: str, args: dict) -> str:
         return json.dumps(post("/say", payload), ensure_ascii=False)
     if name == "panel_state":
         payload = {
+            "source": args.get("source") or "mcp",
+            "session": args.get("session") or "",
             "state": args.get("state", "idle"),
             "detail": args.get("detail", ""),
         }
+        for k in ("ttl", "priority"):
+            if args.get(k) is not None:
+                payload[k] = args[k]
         if args.get("force"):
-            payload["force"] = True
-        return json.dumps(post("/state", payload), ensure_ascii=False)
+            payload["priority"] = 999
+        return json.dumps(post("/report", payload), ensure_ascii=False)
     if name == "panel_flash":
         payload = {"kind": args.get("kind", "success")}
         if "seconds" in args:
             payload["seconds"] = args["seconds"]
         return json.dumps(post("/flash", payload), ensure_ascii=False)
+    if name == "panel_clear":
+        payload = {"source": args.get("source", "")}
+        if args.get("session"):
+            payload["session"] = args["session"]
+        return json.dumps(post("/clear", payload), ensure_ascii=False)
     if name == "panel_status":
         return json.dumps(get("/state"), ensure_ascii=False)
     if name == "panel_resume":

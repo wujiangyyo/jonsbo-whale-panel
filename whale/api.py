@@ -24,8 +24,14 @@ USAGE = {
         "POST /say": {"text": "必填", "sub": "可选", "mood": "可选，不填按关键词自动",
                       "seconds": "可选，0=一直显示直到 resume，默认 180"},
         "POST /image": {"path": "必填", "seconds": "可选，默认 30"},
+        "POST /report": {"source": "Agent 标识，如 dsh/reasonix/hermes/teleagent",
+                         "session": "可选，区分同 Agent 多会话",
+                         "state": "working|approval|question|plan|done|idle",
+                         "detail": "可选", "ttl": "秒，可选", "priority": "可选"},
         "POST /state": {"state": "working|approval|question|plan|idle",
-                        "detail": "可选，显示在卡片上"},
+                        "detail": "可选，显示在卡片上",
+                        "source": "可选，默认 manual", "ttl": "秒，可选"},
+        "POST /clear": {"source": "必填", "session": "可选"},
         "POST /flash": {"kind": "success|failure", "seconds": "默认 3"},
         "POST /resume": {},
         "GET /health": {},
@@ -41,7 +47,7 @@ STATE_ALIASES = {
 }
 
 
-def make_handler(write_cmd, log):
+def make_handler(write_cmd, log, hub=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "WhaleGirl/1.1"
 
@@ -79,7 +85,10 @@ def make_handler(write_cmd, log):
             if path == "/health":
                 self._send(200, {"ok": True, "ts": time.time()})
             elif path == "/state":
-                self._send(200, self._read_status())
+                if hub is not None:
+                    self._send(200, hub.snapshot())
+                else:
+                    self._send(200, self._read_status())
             else:
                 self._send(200, USAGE)
 
@@ -113,14 +122,39 @@ def make_handler(write_cmd, log):
                     seconds = float(data.get("seconds", 30) or 0)
                     payload = {"type": "image", "path": p,
                                "until": (time.time() + seconds) if seconds > 0 else 4102444800}
-                elif path == "/state":
+                elif path in ("/state", "/report"):
                     state = STATE_ALIASES.get(str(data.get("state", "")).strip().lower())
                     if state is None:
                         return self._send(400, {"ok": False, "error": "unknown state",
                                                 "allowed": sorted(set(STATE_ALIASES.values()))})
-                    payload = {"type": "state", "state": state,
-                               "detail": str(data.get("detail", "")),
+                    source = str(data.get("source") or "manual")[:16]
+                    session = str(data.get("session") or "")
+                    detail = str(data.get("detail", ""))
+                    ttl = data.get("ttl")
+                    priority = data.get("priority")
+                    if data.get("force"):
+                        priority = 999
+                    if hub is not None:
+                        hub.report(source, state, detail, session, ttl, priority)
+                        return self._send(200, {"ok": True, "key": "%s/%s" % (source, session or "-"),
+                                                "state": state,
+                                                "display": hub.compose()})
+                    payload = {"type": "state", "state": state, "detail": detail,
+                               "source": source, "session": session,
+                               "ttl": ttl, "priority": priority,
                                "force": bool(data.get("force"))}
+
+                elif path == "/clear":
+                    source = str(data.get("source") or "")
+                    if not source:
+                        return self._send(400, {"ok": False, "error": "source required"})
+                    session = data.get("session")
+                    if hub is not None:
+                        n = hub.clear(source, str(session) if session is not None else None)
+                        return self._send(200, {"ok": True, "removed": n,
+                                                "display": hub.compose()})
+                    payload = {"type": "clear", "source": source,
+                               "session": str(session or "")}
                 elif path == "/flash":
                     kind = str(data.get("kind", "success")).lower()
                     if kind not in ("success", "failure"):
@@ -141,8 +175,8 @@ def make_handler(write_cmd, log):
     return Handler
 
 
-def start(write_cmd, log, host="127.0.0.1", port=8765):
-    handler = make_handler(write_cmd, log)
+def start(write_cmd, log, hub=None, host="127.0.0.1", port=8765):
+    handler = make_handler(write_cmd, log, hub)
     httpd = ThreadingHTTPServer((host, port), handler)
     t = threading.Thread(target=httpd.serve_forever, daemon=True, name="whale-api")
     t.start()

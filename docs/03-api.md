@@ -13,7 +13,9 @@
 | POST | `/flash` | 瞬时气泡（成功/失败，默认 3 秒） |
 | POST | `/resume` | 立刻回到待机 |
 | GET | `/health` | 探活 |
-| GET | `/state` | 查询当前真实状态 |
+| GET | `/state` | 查询合成后的真实状态（含所有活跃源） |
+| POST | `/report` | 多 Agent 上报（带 source/session/ttl） |
+| POST | `/clear` | 清除某个源 |
 
 ## POST /say
 
@@ -54,6 +56,34 @@
 | `approval` | 待命 | `● 待审批`（红） |
 | `question` | 好奇 | `● 等你回答`（黄） |
 | `plan` | 思考 | `● 计划待确认`（紫） |
+
+## POST /report（多 Agent 推荐）
+
+多个 Agent 共用一块屏时用这个：每个上报者一条记录，按优先级合成。
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `source` | string | 是 | Agent 标识：`dsh` / `reasonix` / `hermes` / `teleagent`… |
+| `session` | string | 否 | 区分同一 Agent 的多个会话 |
+| `state` | string | 是 | `working` / `approval` / `question` / `plan` / `done` / `idle` |
+| `detail` | string | 否 | 卡片上的补充信息 |
+| `ttl` | number | 否 | 过期秒数；不填按状态给默认值 |
+| `priority` | number | 否 | 覆盖默认优先级 |
+
+默认优先级：`approval 100 > question 90 > plan 70 > working 40 > done 30 > idle 10`，
+同优先级取最近更新。屏幕显示最高优先级的那个源，角落标 `来源 +N`。
+
+```json
+{"source":"reasonix","state":"approval","detail":"要执行 git push","ttl":300}
+```
+
+## POST /clear
+
+Agent 退出时清掉自己的状态，避免僵尸：
+
+```json
+{"source":"reasonix"}
+```
 
 ## GET /state
 

@@ -8,9 +8,10 @@
 | 工具 | 作用 |
 |---|---|
 | `panel_say` | 显示文字（`text` / `sub` / `seconds` / `mood`） |
-| `panel_state` | 设置状态：`working` / `approval` / `question` / `plan` / `idle` |
+| `panel_state` | 设置状态：`working` / `approval` / `question` / `plan` / `idle`；可带 `source` / `ttl` / `session` |
 | `panel_flash` | 瞬时气泡：`success` / `failure` |
-| `panel_status` | 查询当前真实状态 |
+| `panel_status` | 查询合成后的真实状态 |
+| `panel_clear` | 清除某个源的状态（退出前调用） |
 | `panel_resume` | 回到待机 |
 | `panel_health` | 探活 |
 
