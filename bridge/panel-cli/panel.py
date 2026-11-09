@@ -56,7 +56,10 @@ def main() -> int:
         if a.action == "status":
             out = get("/state")
         elif a.action == "clear":
-            out = post("/clear", {"source": a.source, "session": a.session})
+            payload = {"source": a.source}
+            if a.session:
+                payload["session"] = a.session
+            out = post("/clear", payload)
         elif a.action == "resume":
             out = post("/resume", {})
         elif a.action == "say":

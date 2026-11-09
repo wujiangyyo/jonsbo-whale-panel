@@ -148,9 +148,9 @@ def make_handler(write_cmd, log, hub=None):
                     source = str(data.get("source") or "")
                     if not source:
                         return self._send(400, {"ok": False, "error": "source required"})
-                    session = data.get("session")
+                    session = data.get("session") or None  # 空串表示清掉该源的全部会话
                     if hub is not None:
-                        n = hub.clear(source, str(session) if session is not None else None)
+                        n = hub.clear(source, session)
                         return self._send(200, {"ok": True, "removed": n,
                                                 "display": hub.compose()})
                     payload = {"type": "clear", "source": source,
