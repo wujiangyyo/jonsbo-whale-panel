@@ -97,7 +97,8 @@ function parseNotification(message) {
   const raw = String(message || "").trim();
   const lower = raw.toLowerCase();
   const isApproval = /approv|permission|审批|授权|批准/.test(lower);
-  const isQuestion = /question|ask_?user|input required|回答|提问|请输入|请选择/.test(lower);
+  // 提问类：Question / 需要回答 / 需要你决定 / 请选择 …
+  const isQuestion = /question|ask_?user|input required|回答|提问|请输入|请选择|决定|需要你/.test(lower);
   if (!isApproval && !isQuestion) return null;
 
   // "approval needed: bash go test ./..." -> "bash go test ./..."
