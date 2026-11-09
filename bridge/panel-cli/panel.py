@@ -33,6 +33,11 @@ def get(path: str) -> dict:
 
 
 def main() -> int:
+    for stream in (sys.stdin, sys.stdout):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
     ap = argparse.ArgumentParser(description="鲸鱼娘副屏命令行")
     ap.add_argument("action", choices=["working", "approval", "question", "plan",
                                        "done", "idle", "clear", "status", "say", "resume"])
