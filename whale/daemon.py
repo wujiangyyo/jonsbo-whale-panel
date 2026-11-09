@@ -655,7 +655,11 @@ def main():
             log("cmd: %s" % cmd)
             read_cmd.logged = getattr(read_cmd, "last", None)
 
-        if cmd:
+        # 同一条命令文件只处理一次：read_cmd 会缓存，否则 resume 每轮重放、
+        # 反复 HUB.clear() 会把中枢清空
+        cmd_sig = getattr(read_cmd, "last", None)
+        if cmd and getattr(main, "cmd_sig", None) != cmd_sig:
+            main.cmd_sig = cmd_sig
             if cmd.get("type") == "state":
                 try:
                     HUB.report(cmd.get("source") or "manual", cmd.get("state", "idle"),
