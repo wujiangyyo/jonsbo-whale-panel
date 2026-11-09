@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "match": "*",
+        "command": "\"C:\\tools\\nodejs\\node.exe\" \"C:\\Users\\jiang\\.reasonix\\hooks\\panel-hook.js\" prompt",
+        "timeout": 3000
+      }
+    ],
+    "PreToolUse": [
+      {
+        "match": "*",
+        "command": "\"C:\\tools\\nodejs\\node.exe\" \"C:\\Users\\jiang\\.reasonix\\hooks\\panel-hook.js\" working",
+        "timeout": 3000
+      }
+    ],
+    "Notification": [
+      {
+        "command": "\"C:\\tools\\nodejs\\node.exe\" \"C:\\Users\\jiang\\.reasonix\\hooks\\panel-hook.js\" notify",
+        "timeout": 3000,
+        "description": "把「等待审批 / 等待回答」推到鲸鱼娘副屏"
+      }
+    ],
+    "Stop": [
+      {
+        "match": "*",
+        "command": "\"C:\\tools\\nodejs\\node.exe\" \"C:\\Users\\jiang\\.reasonix\\hooks\\panel-hook.js\" idle",
+        "timeout": 3000
+      }
+    ]
+  }
+}
